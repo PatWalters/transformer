@@ -30,12 +30,43 @@ def clear_atom_maps(mol):
         atm.SetAtomMapNum(0)
 
 
+def get_bond_lengths(mol):
+    """
+    Return a list of bond lengths
+    :param mol: input molecule
+    :return: list of bond lengths
+    """
+    dm = Get3DDistanceMatrix(mol)
+    bnd_list = []
+    for bnd in mol.GetBonds():
+        start = bnd.GetBeginAtomIdx()
+        end = bnd.GetEndAtomIdx()
+        bnd_list.append(dm[start,end])
+    return bnd_list
+
+
+def scale_molecule(mol, factor=1.5):
+    """
+    Scale the bond lengths in a molecule
+    :param mol: input molecule
+    :param factor: scaling factor
+    :return: None
+    """
+    mean_dist = np.mean(get_bond_lengths(mol))
+    factor = factor/mean_dist
+    matrix = np.zeros((4, 4), np.float)
+    for i in range(3):
+        matrix[i, i] = factor
+        matrix[3, 3] = 1
+    AllChem.TransformMol(mol, matrix)
+
+
 def run_transforms(rxn_file, data_file):
     rxn = AllChem.ReactionFromRxnFile(rxn_file)
     reactant_template = Chem.Mol(rxn.GetReactantTemplate(0))
     product_template = Chem.Mol(rxn.GetProductTemplate(0))
-    rdDepictor.Compute2DCoords(reactant_template)
-    rdDepictor.Compute2DCoords(product_template)
+    scale_molecule(reactant_template)
+    scale_molecule(product_template)
     clear_atom_maps(reactant_template)
     clear_atom_maps(product_template)
     df = pd.read_csv(data_file)
