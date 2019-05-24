@@ -101,7 +101,8 @@ def save_output(output_list, file_name):
 def main():
     if len(sys.argv) != 4:
         print(f"usage: {sys.argv[0]} rxn.rxn infile.csv outfile.sdf")
-    out_list = run_transforms(sys.argv[1],sys.argv[2])
+        sys.exit(1)
+    out_list = run_transforms(sys.argv[1], sys.argv[2])
     save_output(out_list, sys.argv[3])
 
 
