@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
+import sys
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from rdkit.Chem import rdDepictor, TemplateAlign, rdmolfiles
+from rdkit.Chem import rdDepictor, rdmolfiles, Get3DDistanceMatrix
 import pandas as pd
-import sys
+import numpy as np
 
 
 def remove_salts(mol):
@@ -41,7 +42,7 @@ def get_bond_lengths(mol):
     for bnd in mol.GetBonds():
         start = bnd.GetBeginAtomIdx()
         end = bnd.GetEndAtomIdx()
-        bnd_list.append(dm[start,end])
+        bnd_list.append(dm[start, end])
     return bnd_list
 
 
@@ -53,7 +54,7 @@ def scale_molecule(mol, factor=1.5):
     :return: None
     """
     mean_dist = np.mean(get_bond_lengths(mol))
-    factor = factor/mean_dist
+    factor = factor / mean_dist
     matrix = np.zeros((4, 4), np.float)
     for i in range(3):
         matrix[i, i] = factor
@@ -81,10 +82,8 @@ def run_transforms(rxn_file, data_file):
             prod_smiles = Chem.MolToSmiles(prod_mol)
             prod_lookup = smiles_dict.get(prod_smiles)
             if prod_lookup is not None:
-                print(Chem.MolToSmiles(prod_mol))
-                rdDepictor.GenerateDepictionMatching2DStructure(mol,reactant_template)
+                rdDepictor.GenerateDepictionMatching2DStructure(mol, reactant_template)
                 output_list.append([mol, name, val])
-
                 prod_name, prod_val = prod_lookup
                 rdDepictor.GenerateDepictionMatching2DStructure(prod_mol, product_template)
                 output_list.append([prod_mol, prod_name, prod_val])
@@ -94,24 +93,16 @@ def run_transforms(rxn_file, data_file):
 def save_output(output_list, file_name):
     writer = rdmolfiles.SDWriter(file_name)
     for mol, name, val in output_list:
-        mol.SetProp("_Name",name)
-        mol.SetProp("Value",str(val))
+        mol.SetProp("_Name", name)
+        mol.SetProp("Value", str(val))
         writer.write(mol)
 
 
 def main():
-    out_list = run_transforms("test2.rxn", "CHEMBL1949661.csv")
-    save_output(out_list,"out.sdf")
+    if len(sys.argv) != 4:
+        print(f"usage: {sys.argv[0]} rxn.rxn infile.csv outfile.sdf")
+    out_list = run_transforms(sys.argv[1],sys.argv[2])
+    save_output(out_list, sys.argv[3])
 
-
-def test():
-    mol = Chem.MolFromSmiles("FC(F)(F)Oc1cccc(-n2nnc3ccc(NC4CCOCC4)nc32)c1")
-    rdDepictor.Compute2DCoords(mol)
-    tmplt = Chem.MolFromSmarts("c1cnc2nnnc2c1")
-    rdDepictor.Compute2DCoords(tmplt)
-    TemplateAlign.AlignMolToTemplate2D(mol, tmplt, clearConfs=True)
-    print(mol.HasSubstructMatch(tmplt))
 
 main()
-
-
