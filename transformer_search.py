@@ -63,6 +63,13 @@ def scale_molecule(mol, factor=1.5):
 
 
 def run_transforms(rxn_file, data_file):
+    """
+    Given a reaction and a file with SMILES and activity values, generate products and check whether products are in
+    the input
+    :param rxn_file: reaction file name
+    :param data_file: data file name
+    :return: list of output molecules
+    """
     rxn = AllChem.ReactionFromRxnFile(rxn_file)
     reactant_template = Chem.Mol(rxn.GetReactantTemplate(0))
     product_template = Chem.Mol(rxn.GetProductTemplate(0))
