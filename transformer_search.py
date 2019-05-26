@@ -75,6 +75,7 @@ def run_transforms(rxn_file, data_file):
     df["Mol"] = [remove_salts(x) for x in mol_list]
     smiles_dict = build_smiles_dictionary(df)
     output_list = []
+    used = set()
     for (mol, name, val) in df[["Mol", "Name", "Value"]].values:
         prods = rxn.RunReactants([mol])
         for prod in prods:
@@ -82,11 +83,14 @@ def run_transforms(rxn_file, data_file):
             prod_smiles = Chem.MolToSmiles(prod_mol)
             prod_lookup = smiles_dict.get(prod_smiles)
             if prod_lookup is not None:
-                rdDepictor.GenerateDepictionMatching2DStructure(mol, reactant_template)
-                output_list.append([mol, name, val])
-                prod_name, prod_val = prod_lookup
-                rdDepictor.GenerateDepictionMatching2DStructure(prod_mol, product_template)
-                output_list.append([prod_mol, prod_name, prod_val])
+                if prod_smiles not in used:
+                    rdDepictor.GenerateDepictionMatching2DStructure(mol, reactant_template)
+                    output_list.append([mol, name, val])
+                    prod_name, prod_val = prod_lookup
+                    prod_mol.UpdatePropertyCache()
+                    rdDepictor.GenerateDepictionMatching2DStructure(prod_mol, product_template)
+                    output_list.append([prod_mol, prod_name, prod_val])
+                    used.add(prod_smiles)
     return output_list
 
 
