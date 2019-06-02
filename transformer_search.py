@@ -6,9 +6,25 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import rdDepictor, rdmolfiles, Get3DDistanceMatrix
 import pandas as pd
 import numpy as np
+from docopt import docopt
+
+doc = """Usage:
+transformer_search.py --rxn REACTION_FILE --in CSV_FILE --out OUTPUT_FILE[--smarts SMARTS_PATTERN]
+
+Options: 
+--rxn REACTION_FILE reaction transform as an MDL rxn file
+--in CSV_FILE  input data, columns are SMILES, Name, Value
+--out OUTPUT_FILE sdf file for output data
+--smarts SMARTS_PATTERN option smarts pattern that all reactants must match
+"""
 
 
 def remove_salts(mol):
+    """
+    Remove everything but the largest fragment
+    :param mol: input molecule
+    :return: largest fragment as a molecule
+    """
     frags = Chem.GetMolFrags(mol, asMols=True)
     largest = -1
     largest_frag = None
@@ -20,6 +36,11 @@ def remove_salts(mol):
 
 
 def build_smiles_dictionary(df):
+    """
+    Convert input dataframe to a dictionary
+    :param df: input dataframe
+    :return: output dictionary
+    """
     smiles_dict = {}
     for (mol, name, val) in df[["Mol", "Name", "Value"]].values:
         smiles_dict[Chem.MolToSmiles(mol)] = [name, val]
@@ -27,6 +48,11 @@ def build_smiles_dictionary(df):
 
 
 def clear_atom_maps(mol):
+    """
+    Set all atom maps to 0
+    :param mol:  input molecule
+    :return: None
+    """
     for atm in mol.GetAtoms():
         atm.SetAtomMapNum(0)
 
@@ -62,14 +88,20 @@ def scale_molecule(mol, factor=1.5):
     AllChem.TransformMol(mol, matrix)
 
 
-def run_transforms(rxn_file, data_file):
+def run_transforms(rxn_file, data_file, smarts):
     """
     Given a reaction and a file with SMILES and activity values, generate products and check whether products are in
     the input
     :param rxn_file: reaction file name
     :param data_file: data file name
+    :param smarts: smarts that must be matched by input molecules
     :return: list of output molecules
     """
+    if smarts:
+        smarts_mol = Chem.MolFromSmarts(smarts)
+        if smarts_mol is None:
+            print(f"Could not parse SMARTS {smarts}")
+            sys.exit(1)
     rxn = AllChem.ReactionFromRxnFile(rxn_file)
     reactant_template = Chem.Mol(rxn.GetReactantTemplate(0))
     product_template = Chem.Mol(rxn.GetProductTemplate(0))
@@ -84,6 +116,8 @@ def run_transforms(rxn_file, data_file):
     output_list = []
     used = set()
     for (mol, name, val) in df[["Mol", "Name", "Value"]].values:
+        if smarts and not mol.HasSubstructMatch(smarts_mol):
+            continue
         prods = rxn.RunReactants([mol])
         for prod in prods:
             prod_mol = prod[0]
@@ -110,11 +144,13 @@ def save_output(output_list, file_name):
 
 
 def main():
-    if len(sys.argv) != 4:
-        print(f"usage: {sys.argv[0]} rxn.rxn infile.csv outfile.sdf")
-        sys.exit(1)
-    out_list = run_transforms(sys.argv[1], sys.argv[2])
-    save_output(out_list, sys.argv[3])
+    cmd_input = docopt(doc)
+    rxn_file_name = cmd_input.get("--rxn")
+    csv_file_name = cmd_input.get("--in")
+    out_file_name = cmd_input.get("--out")
+    smarts = cmd_input.get("--smarts")
+    out_list = run_transforms(rxn_file_name, csv_file_name, smarts)
+    save_output(out_list, out_file_name)
 
 
 main()
