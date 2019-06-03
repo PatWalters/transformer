@@ -15,7 +15,7 @@ Options:
 --rxn REACTION_FILE reaction transform as an MDL rxn file
 --in CSV_FILE  input data, columns are SMILES, Name, Value
 --out OUTPUT_FILE sdf file for output data
---smarts SMARTS_PATTERN option smarts pattern that all reactants must match
+--smarts SMARTS_PATTERN optional smarts pattern that all reactants must match
 """
 
 
@@ -105,16 +105,24 @@ def run_transforms(rxn_file, data_file, smarts):
     rxn = AllChem.ReactionFromRxnFile(rxn_file)
     reactant_template = Chem.Mol(rxn.GetReactantTemplate(0))
     product_template = Chem.Mol(rxn.GetProductTemplate(0))
+    # In order to make the output easier to understand, we will align the molecules to the reaction
+    # The aligned structures will look funny unless we scale the reaction and product templates
     scale_molecule(reactant_template)
     scale_molecule(product_template)
+    # Clear the atom maps from the templates, may not be necessary, but can't hurt
     clear_atom_maps(reactant_template)
     clear_atom_maps(product_template)
+    # Read in the data
     df = pd.read_csv(data_file)
+    # Create a list of input molecules
     mol_list = [Chem.MolFromSmiles(x) for x in df.SMILES]
     df["Mol"] = [remove_salts(x) for x in mol_list]
+    # Build a dictionary of the input SMILES
     smiles_dict = build_smiles_dictionary(df)
     output_list = []
     used = set()
+    # Loop over the molecules, apply the reaction and check if the product SMILES is in smiles_dict
+    # If it is, we have a pair
     for (mol, name, val) in df[["Mol", "Name", "Value"]].values:
         if smarts and not mol.HasSubstructMatch(smarts_mol):
             continue
@@ -124,11 +132,14 @@ def run_transforms(rxn_file, data_file, smarts):
             prod_smiles = Chem.MolToSmiles(prod_mol)
             prod_lookup = smiles_dict.get(prod_smiles)
             if prod_lookup is not None:
+                # skip duplicate products
                 if prod_smiles not in used:
+                    # Generate a depiction aligned to the reactant template
                     rdDepictor.GenerateDepictionMatching2DStructure(mol, reactant_template)
                     output_list.append([mol, name, val])
                     prod_name, prod_val = prod_lookup
                     prod_mol.UpdatePropertyCache()
+                    # Generate a depiction aligned to the product template
                     rdDepictor.GenerateDepictionMatching2DStructure(prod_mol, product_template)
                     output_list.append([prod_mol, prod_name, prod_val])
                     used.add(prod_smiles)
@@ -136,6 +147,12 @@ def run_transforms(rxn_file, data_file, smarts):
 
 
 def save_output(output_list, file_name):
+    """
+    Write the output to an SD file
+    :param output_list: list of pairs
+    :param file_name: output file name
+    :return: None
+    """
     writer = rdmolfiles.SDWriter(file_name)
     for mol, name, val in output_list:
         mol.SetProp("_Name", name)
