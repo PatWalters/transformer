@@ -14,7 +14,7 @@ The "--smarts" argument won't typically be required.  The only time you may want
 
 
 ### Installation
-This script requires [the RDKit](https://www.rdkit.org/docs/Install.html).  The included Jupyter notebook also requires the -[Seaborn graphics library](https://seaborn.pydata.org/).
+This script requires [the RDKit](https://www.rdkit.org/docs/Install.html).  The included Jupyter notebook also requires the [Seaborn graphics library](https://seaborn.pydata.org/).
 ```
 pip install seaborn
 ```
