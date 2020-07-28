@@ -32,6 +32,7 @@ def remove_salts(mol):
         num_atoms = frag.GetNumAtoms()
         if num_atoms > largest:
             largest_frag = frag
+            largest = num_atoms
     return largest_frag
 
 
